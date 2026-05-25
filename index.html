@@ -63,6 +63,8 @@
     .field{display:grid;gap:6px}
     .field label{font-size:13px;color:var(--muted)}
     .field input,.field select{width:100%;background:#1d1714;border:1px solid var(--line);color:var(--ink);border-radius:14px;padding:13px 14px;font:inherit;outline:none}
+    .field input[type="number"]::-webkit-outer-spin-button,.field input[type="number"]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+    .field input[type="number"]{appearance:textfield}
     .inline-add{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:end}
     .actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
     button.primary,button.secondary{border:none;border-radius:14px;padding:13px 16px;font:inherit;font-weight:700;cursor:pointer;transition:transform .1s ease, opacity .1s ease}
@@ -159,6 +161,23 @@
           </div>
 
           <div class="section-title" style="margin-top:20px">總分排行榜</div>
+          <div class="names" style="margin-bottom:12px">
+            <div class="field">
+              <label>調整邊個分數</label>
+              <select id="adjustPlayer"></select>
+            </div>
+            <div class="field">
+              <label>加 / 減幾多分</label>
+              <input id="adjustAmount" type="number" step="1" placeholder="例如：16 或 -8">
+            </div>
+            <div class="field">
+              <label>原因（可留空）</label>
+              <input id="adjustReason" maxlength="40" placeholder="例如：補回上一鋪 / 手動修正">
+            </div>
+          </div>
+          <div class="actions" style="margin-top:0;margin-bottom:12px">
+            <button class="secondary" id="adjustBtn">調整分數</button>
+          </div>
           <div class="totals" id="totals"></div>
 
           <div class="section-title" style="margin-top:20px">最近紀錄</div>
@@ -389,6 +408,19 @@
       }).join('');
     }
 
+    function renderAdjustPlayerOptions(){
+      const el = document.getElementById('adjustPlayer');
+      if(!state.players.length){
+        el.innerHTML = '<option value="">請先加入玩家</option>';
+        el.disabled = true;
+        return;
+      }
+      const current = el.value;
+      el.innerHTML = state.players.map(name => `<option value="${name}">${name}</option>`).join('');
+      el.value = state.players.includes(current) ? current : state.players[0];
+      el.disabled = false;
+    }
+
     function renderHistory(){
       const historyEl = document.getElementById('history');
       if(!state.history.length){
@@ -433,6 +465,34 @@
       renderPlayerChips();
     }
 
+    function applyAdjustment(){
+      const player = document.getElementById('adjustPlayer').value;
+      const amountRaw = document.getElementById('adjustAmount').value.trim();
+      const reason = document.getElementById('adjustReason').value.trim();
+      if(!player){ alert('請先揀要調整邊個。'); return; }
+      if(!amountRaw){ alert('請輸入調整分數。'); return; }
+      const amount = Number(amountRaw);
+      if(!Number.isFinite(amount) || !Number.isInteger(amount) || amount === 0){
+        alert('請輸入非 0 整數分數，例如 16 或 -8。');
+        return;
+      }
+      state.scores[player] = Number(state.scores[player] || 0) + amount;
+      const prefix = amount > 0 ? '+' : '';
+      state.history.push({
+        label: `${player} 手動調整`,
+        detail: `${prefix}${amount} 分${reason ? ` · ${reason}` : ''}`,
+        deltas: { [player]: amount },
+        seats:[...state.seats],
+        kind:'adjustment'
+      });
+      document.getElementById('adjustAmount').value = '';
+      document.getElementById('adjustReason').value = '';
+      saveState();
+      renderTotals();
+      renderHistory();
+      renderPlayerChips();
+    }
+
     function undoRound(){
       const last = state.history.pop();
       if(!last) return;
@@ -462,6 +522,7 @@
       renderPlayerChips();
       renderSeats();
       renderRoundSelectors();
+      renderAdjustPlayerOptions();
       renderTotals();
       renderHistory();
       saveState();
@@ -471,6 +532,7 @@
     bindSeatEvents();
     document.getElementById('winType').addEventListener('change', renderRoundSelectors);
     document.getElementById('applyBtn').addEventListener('click', applyRound);
+    document.getElementById('adjustBtn').addEventListener('click', applyAdjustment);
     document.getElementById('undoBtn').addEventListener('click', undoRound);
     document.getElementById('resetBtn').addEventListener('click', resetBoard);
     document.getElementById('addPlayerBtn').addEventListener('click', () => {
@@ -483,6 +545,18 @@
       if(e.key === 'Enter'){
         e.preventDefault();
         document.getElementById('addPlayerBtn').click();
+      }
+    });
+    document.getElementById('adjustAmount').addEventListener('keydown', (e) => {
+      if(e.key === 'Enter'){
+        e.preventDefault();
+        applyAdjustment();
+      }
+    });
+    document.getElementById('adjustReason').addEventListener('keydown', (e) => {
+      if(e.key === 'Enter'){
+        e.preventDefault();
+        applyAdjustment();
       }
     });
     renderAll();
