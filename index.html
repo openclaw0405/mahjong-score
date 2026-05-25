@@ -103,11 +103,11 @@
     <section class="hero">
       <div class="eyebrow">Traditional Mahjong · 香港常用簡化記分</div>
       <h1>麻雀計分器</h1>
-      <div class="sub">呢個版本先用你俾嘅規則：<strong>三番起糊、最大十番、傳統、三番出銃 32</strong>。每加一番 ×2。可即時計分，亦可以記低每鋪輸贏。</div>
+      <div class="sub">呢個版本先用你俾嘅規則：<strong>三番起糊、最大十番、傳統、三番出銃 16</strong>。每加一番 ×2。已經加埋<strong>自摸計分</strong>：預設其餘三家各付同樣分數俾糊家。可即時計分，亦可以記低每鋪輸贏。</div>
       <div class="rulebar">
         <div class="pill">三番起糊</div>
         <div class="pill">封頂十番</div>
-        <div class="pill">出銃 3 番 = 32</div>
+        <div class="pill">出銃 3 番 = 16</div>
         <div class="pill">每加一番 ×2</div>
       </div>
     </section>
@@ -119,11 +119,11 @@
           <div class="fan-grid" id="fanGrid"></div>
           <div class="score-box" style="margin-top:16px">
             <div class="score-main">
-              <div class="score-label">出銃分數</div>
-              <div class="score-value" id="scoreValue">32</div>
-              <div class="score-caption"><span id="scoreFanText">3 番</span> · <span id="scoreDesc">一炮32</span></div>
+              <div class="score-label" id="scoreLabel">出銃分數</div>
+              <div class="score-value" id="scoreValue">16</div>
+              <div class="score-caption"><span id="scoreFanText">3 番</span> · <span id="scoreDesc">一炮16</span></div>
             </div>
-            <div class="formula">公式：<code>32 × 2^(番數 - 3)</code></div>
+            <div class="formula">公式：<code>16 × 2^(番數 - 3)</code></div>
           </div>
 
           <div class="section-title" style="margin-top:22px">番數總表</div>
@@ -143,11 +143,18 @@
 
           <div class="names" style="margin-top:12px">
             <div class="field">
+              <label>計分方式</label>
+              <select id="winType">
+                <option value="discard">出銃</option>
+                <option value="selfdraw">自摸</option>
+              </select>
+            </div>
+            <div class="field">
               <label>邊個糊</label>
               <select id="winner"></select>
             </div>
             <div class="field">
-              <label>邊個出銃</label>
+              <label id="loserLabel">邊個出銃</label>
               <select id="loser"></select>
             </div>
           </div>
@@ -163,7 +170,7 @@
           <div class="section-title" style="margin-top:20px">最近紀錄</div>
           <div class="history" id="history"></div>
 
-          <div class="foot">註：呢個版本以<strong>出銃</strong>為主。自摸、包牌、花分、底分等未加。如果你想，我之後可以再幫你擴充成完整版。</div>
+          <div class="foot">註：而家支援<strong>出銃</strong>同<strong>自摸</strong>。自摸暫時用簡化版：其餘三家各付同樣分數俾糊家。包牌、花分、底分、莊閒等仲未加，如果你想我可以再補。</div>
         </div>
       </div>
     </section>
@@ -176,7 +183,7 @@
     let state = loadState();
 
     function scoreForFan(fan){
-      return 32 * Math.pow(2, fan - 3);
+      return 16 * Math.pow(2, fan - 3);
     }
 
     function loadState(){
@@ -221,10 +228,17 @@
     }
 
     function renderScore(){
+      const winType = document.getElementById('winType')?.value || 'discard';
       const score = scoreForFan(selectedFan);
+      const totalSelfDraw = score * 3;
+      document.getElementById('scoreLabel').textContent = winType === 'selfdraw' ? '自摸（每家）' : '出銃分數';
       document.getElementById('scoreValue').textContent = score;
       document.getElementById('scoreFanText').textContent = `${selectedFan} 番`;
-      document.getElementById('scoreDesc').textContent = selectedFan === 3 ? '一炮32' : `比 ${selectedFan-1} 番再高一級`;
+      if(winType === 'selfdraw'){
+        document.getElementById('scoreDesc').textContent = `每家 ${score} · 合共 ${totalSelfDraw}`;
+      }else{
+        document.getElementById('scoreDesc').textContent = selectedFan === 3 ? '一炮16' : `比 ${selectedFan-1} 番再高一級`;
+      }
     }
 
     function renderTable(){
@@ -262,8 +276,10 @@
     }
 
     function renderSelectors(){
+      const winType = document.getElementById('winType')?.value || 'discard';
       const winner = document.getElementById('winner');
       const loser = document.getElementById('loser');
+      const loserLabel = document.getElementById('loserLabel');
       const options = state.names.map((name, idx) => `<option value="${idx}">${name}</option>`).join('');
       const currentWinner = winner.value || '0';
       const currentLoser = loser.value || '1';
@@ -271,6 +287,8 @@
       loser.innerHTML = options;
       winner.value = currentWinner;
       loser.value = currentLoser === currentWinner ? String((Number(currentWinner)+1)%4) : currentLoser;
+      loser.disabled = winType === 'selfdraw';
+      loserLabel.textContent = winType === 'selfdraw' ? '出銃（自摸時唔使揀）' : '邊個出銃';
     }
 
     function renderTotals(){
@@ -292,28 +310,39 @@
       }
       historyEl.innerHTML = state.history.slice().reverse().map(item => {
         return `<div class="history-item">
-          <strong>${item.winner} 食 ${item.loser}</strong>
-          <div>${item.fan}番 · ${item.score} 分</div>
+          <strong>${item.label}</strong>
+          <div>${item.detail}</div>
         </div>`;
       }).join('');
     }
 
     function applyRound(){
+      const winType = document.getElementById('winType').value;
       const winnerIdx = Number(document.getElementById('winner').value);
       const loserIdx = Number(document.getElementById('loser').value);
-      if(winnerIdx === loserIdx){
+      if(winType === 'discard' && winnerIdx === loserIdx){
         alert('糊牌同出銃唔可以係同一個人。');
         return;
       }
       const score = scoreForFan(selectedFan);
-      state.totals[winnerIdx] += score;
-      state.totals[loserIdx] -= score;
-      state.history.push({
-        winner: state.names[winnerIdx],
-        loser: state.names[loserIdx],
-        fan: selectedFan,
-        score
-      });
+      const deltas = [0,0,0,0];
+      let label = '';
+      let detail = '';
+      if(winType === 'selfdraw'){
+        deltas[winnerIdx] += score * 3;
+        state.names.forEach((_, idx) => {
+          if(idx !== winnerIdx) deltas[idx] -= score;
+        });
+        label = `${state.names[winnerIdx]} 自摸`;
+        detail = `${selectedFan}番 · 每家 ${score} 分 · 合共 ${score * 3}`;
+      }else{
+        deltas[winnerIdx] += score;
+        deltas[loserIdx] -= score;
+        label = `${state.names[winnerIdx]} 食 ${state.names[loserIdx]}`;
+        detail = `${selectedFan}番 · ${score} 分`;
+      }
+      state.totals = state.totals.map((total, idx) => total + deltas[idx]);
+      state.history.push({ label, detail, deltas });
       saveState();
       renderTotals();
       renderHistory();
@@ -322,10 +351,9 @@
     function undoRound(){
       const last = state.history.pop();
       if(!last) return;
-      const winnerIdx = state.names.indexOf(last.winner);
-      const loserIdx = state.names.indexOf(last.loser);
-      if(winnerIdx !== -1) state.totals[winnerIdx] -= last.score;
-      if(loserIdx !== -1) state.totals[loserIdx] += last.score;
+      if(Array.isArray(last.deltas)){
+        state.totals = state.totals.map((total, idx) => total - (last.deltas[idx] || 0));
+      }
       saveState();
       renderTotals();
       renderHistory();
@@ -351,6 +379,10 @@
     }
 
     wireNameInputs();
+    document.getElementById('winType').addEventListener('change', () => {
+      renderSelectors();
+      renderScore();
+    });
     document.getElementById('applyBtn').addEventListener('click', applyRound);
     document.getElementById('undoBtn').addEventListener('click', undoRound);
     document.getElementById('resetBtn').addEventListener('click', resetBoard);
