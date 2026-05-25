@@ -35,7 +35,8 @@
     .card-inner{padding:20px}
     .rulebar,.chips{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}
     .pill,.chip{padding:10px 14px;border-radius:999px;background:rgba(255,255,255,.05);border:1px solid var(--line);color:var(--ink);font-size:13px}
-    .chip button{all:unset;cursor:pointer;color:var(--soft);margin-left:8px}
+    .chip button{all:unset;cursor:pointer;color:var(--soft);margin-left:8px;font-weight:800}
+    .chip button:hover{color:var(--ink)}
     .section-title{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:14px}
     .fan-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
     .fan-btn{border:none;border-radius:18px;padding:16px 10px;background:var(--panel-2);color:var(--ink);cursor:pointer;transition:transform .12s ease, background .12s ease, box-shadow .12s ease, color .12s ease;border:1px solid transparent}
@@ -280,13 +281,19 @@
 
     function removePlayer(name){
       const usingSeat = state.seats.includes(name);
-      const score = Number(state.scores[name] || 0);
-      if(usingSeat || score !== 0){
-        alert('呢個玩家仲喺座位上，或者仲有累積分數，暫時唔刪得。');
+      if(usingSeat){
+        alert('呢個玩家而家仲喺今鋪座位上，請先換走先可以刪除。');
         return;
+      }
+      const score = Number(state.scores[name] || 0);
+      const relatedHistoryCount = state.history.filter(item => (item?.deltas && Object.prototype.hasOwnProperty.call(item.deltas, name)) || (Array.isArray(item?.seats) && item.seats.includes(name))).length;
+      if(score !== 0 || relatedHistoryCount > 0){
+        const ok = confirm(`刪除 ${name} 會一併移除佢嘅累積分數同相關紀錄，呢個動作無得 Undo。確定刪除？`);
+        if(!ok) return;
       }
       state.players = state.players.filter(player => player !== name);
       delete state.scores[name];
+      state.history = state.history.filter(item => !((item?.deltas && Object.prototype.hasOwnProperty.call(item.deltas, name)) || (Array.isArray(item?.seats) && item.seats.includes(name))));
       saveState();
       renderAll();
     }
@@ -321,7 +328,7 @@
     function renderPlayerChips(){
       const el = document.getElementById('playerChips');
       el.innerHTML = state.players.map(name => {
-        const removable = state.scores[name] === 0 && !state.seats.includes(name);
+        const removable = !state.seats.includes(name);
         return `<div class="chip">${name}${removable ? `<button data-remove="${name}">×</button>` : ''}</div>`;
       }).join('');
       el.querySelectorAll('[data-remove]').forEach(btn => btn.addEventListener('click', () => removePlayer(btn.dataset.remove)));
