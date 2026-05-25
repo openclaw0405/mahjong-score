@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>麻雀計分器</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+HK:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --bg:#171311;
+      --panel:#241d19;
+      --panel-2:#2f2621;
+      --ink:#f6ede4;
+      --muted:#c7b29f;
+      --soft:#8f7968;
+      --line:rgba(255,255,255,.09);
+      --accent:#f3b37a;
+      --accent-2:#e48652;
+      --green:#5dc087;
+      --red:#ea6f5a;
+      --shadow:0 18px 48px rgba(0,0,0,.35);
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;padding:0;background:radial-gradient(circle at top,#2e241f 0%,#171311 55%);color:var(--ink);font-family:'Noto Sans HK',system-ui,sans-serif}
+    body{min-height:100vh}
+    .wrap{max-width:980px;margin:0 auto;padding:24px 16px 64px}
+    .hero{padding:16px 6px 22px}
+    .eyebrow{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
+    h1{font-size:clamp(32px,7vw,56px);line-height:.95;margin:0 0 10px}
+    .sub{color:var(--muted);font-size:15px;line-height:1.6;max-width:680px}
+    .grid{display:grid;grid-template-columns:1.15fr .85fr;gap:18px;align-items:start}
+    .card{background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,.02));border:1px solid var(--line);border-radius:24px;box-shadow:var(--shadow)}
+    .card-inner{padding:20px}
+    .rulebar{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}
+    .pill{padding:10px 14px;border-radius:999px;background:rgba(255,255,255,.05);border:1px solid var(--line);color:var(--ink);font-size:13px}
+    .section-title{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:14px}
+    .fan-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+    .fan-btn{
+      border:none;border-radius:18px;padding:16px 10px;background:var(--panel-2);color:var(--ink);cursor:pointer;
+      transition:transform .12s ease, background .12s ease, box-shadow .12s ease, color .12s ease;
+      border:1px solid transparent;
+    }
+    .fan-btn strong{display:block;font-size:24px;line-height:1;margin-bottom:6px}
+    .fan-btn span{font-size:12px;color:var(--muted)}
+    .fan-btn:hover{transform:translateY(-1px)}
+    .fan-btn.active{background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#1e120b;box-shadow:0 14px 28px rgba(228,134,82,.28)}
+    .fan-btn.active span{color:rgba(30,18,11,.78)}
+    .score-box{display:grid;gap:14px}
+    .score-main{padding:18px 18px 16px;border-radius:22px;background:linear-gradient(135deg,#3a2b22,#241b16);border:1px solid var(--line)}
+    .score-label{font-size:13px;color:var(--muted);margin-bottom:4px}
+    .score-value{font-size:clamp(50px,10vw,86px);line-height:1;font-weight:800;letter-spacing:-.04em}
+    .score-caption{margin-top:10px;font-size:14px;color:var(--muted)}
+    .formula{padding:14px 16px;border-radius:18px;background:rgba(255,255,255,.04);border:1px solid var(--line);font-size:14px;color:var(--muted)}
+    .formula code{color:var(--ink);font-weight:700}
+    .score-table{display:grid;gap:10px}
+    .row{display:grid;grid-template-columns:80px 1fr 96px;gap:10px;align-items:center;padding:12px 14px;border-radius:16px;background:rgba(255,255,255,.04);border:1px solid var(--line)}
+    .row .fan{font-weight:700}
+    .bar{height:10px;border-radius:999px;background:rgba(255,255,255,.06);overflow:hidden}
+    .bar > i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent-2));border-radius:999px}
+    .pts{text-align:right;font-weight:800}
+    .mini{font-size:12px;color:var(--soft)}
+    .names{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+    .field{display:grid;gap:6px}
+    .field label{font-size:13px;color:var(--muted)}
+    .field input,.field select{
+      width:100%;background:#1d1714;border:1px solid var(--line);color:var(--ink);border-radius:14px;padding:13px 14px;
+      font:inherit;outline:none
+    }
+    .actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+    button.primary,button.secondary{
+      border:none;border-radius:14px;padding:13px 16px;font:inherit;font-weight:700;cursor:pointer;transition:transform .1s ease, opacity .1s ease
+    }
+    button.primary{background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#21130b}
+    button.secondary{background:rgba(255,255,255,.06);color:var(--ink);border:1px solid var(--line)}
+    button.primary:active,button.secondary:active,.fan-btn:active{transform:scale(.98)}
+    .totals{display:grid;gap:10px;margin-top:16px}
+    .player-total{display:flex;align-items:center;justify-content:space-between;padding:13px 14px;border-radius:16px;background:rgba(255,255,255,.04);border:1px solid var(--line)}
+    .player-name{font-weight:700}
+    .player-score{font-size:24px;font-weight:800}
+    .plus{color:var(--green)}
+    .minus{color:var(--red)}
+    .history{display:grid;gap:10px;margin-top:16px}
+    .history-item{padding:12px 14px;border-radius:16px;background:rgba(255,255,255,.04);border:1px solid var(--line)}
+    .history-item strong{display:block;margin-bottom:4px}
+    .empty{color:var(--soft);font-size:14px}
+    .foot{margin-top:18px;font-size:13px;color:var(--soft);line-height:1.6}
+    @media (max-width: 820px){
+      .grid{grid-template-columns:1fr}
+    }
+    @media (max-width: 560px){
+      .fan-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+      .row{grid-template-columns:64px 1fr 80px}
+      .names{grid-template-columns:1fr}
+      .wrap{padding-left:12px;padding-right:12px}
+      .card-inner{padding:16px}
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="hero">
+      <div class="eyebrow">Traditional Mahjong · 香港常用簡化記分</div>
+      <h1>麻雀計分器</h1>
+      <div class="sub">呢個版本先用你俾嘅規則：<strong>三番起糊、最大十番、傳統、三番出銃 32</strong>。每加一番 ×2。可即時計分，亦可以記低每鋪輸贏。</div>
+      <div class="rulebar">
+        <div class="pill">三番起糊</div>
+        <div class="pill">封頂十番</div>
+        <div class="pill">出銃 3 番 = 32</div>
+        <div class="pill">每加一番 ×2</div>
+      </div>
+    </section>
+
+    <section class="grid">
+      <div class="card">
+        <div class="card-inner">
+          <div class="section-title">即時計分</div>
+          <div class="fan-grid" id="fanGrid"></div>
+          <div class="score-box" style="margin-top:16px">
+            <div class="score-main">
+              <div class="score-label">出銃分數</div>
+              <div class="score-value" id="scoreValue">32</div>
+              <div class="score-caption"><span id="scoreFanText">3 番</span> · <span id="scoreDesc">一炮32</span></div>
+            </div>
+            <div class="formula">公式：<code>32 × 2^(番數 - 3)</code></div>
+          </div>
+
+          <div class="section-title" style="margin-top:22px">番數總表</div>
+          <div class="score-table" id="scoreTable"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-inner">
+          <div class="section-title">記分板</div>
+          <div class="names">
+            <div class="field"><label>玩家 1</label><input id="name0" value="東" maxlength="12"></div>
+            <div class="field"><label>玩家 2</label><input id="name1" value="南" maxlength="12"></div>
+            <div class="field"><label>玩家 3</label><input id="name2" value="西" maxlength="12"></div>
+            <div class="field"><label>玩家 4</label><input id="name3" value="北" maxlength="12"></div>
+          </div>
+
+          <div class="names" style="margin-top:12px">
+            <div class="field">
+              <label>邊個糊</label>
+              <select id="winner"></select>
+            </div>
+            <div class="field">
+              <label>邊個出銃</label>
+              <select id="loser"></select>
+            </div>
+          </div>
+
+          <div class="actions">
+            <button class="primary" id="applyBtn">記錄呢鋪</button>
+            <button class="secondary" id="undoBtn">Undo</button>
+            <button class="secondary" id="resetBtn">清零</button>
+          </div>
+
+          <div class="totals" id="totals"></div>
+
+          <div class="section-title" style="margin-top:20px">最近紀錄</div>
+          <div class="history" id="history"></div>
+
+          <div class="foot">註：呢個版本以<strong>出銃</strong>為主。自摸、包牌、花分、底分等未加。如果你想，我之後可以再幫你擴充成完整版。</div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const fanValues = [3,4,5,6,7,8,9,10];
+    const storageKey = 'mahjong-score-v1';
+    let selectedFan = 3;
+    let state = loadState();
+
+    function scoreForFan(fan){
+      return 32 * Math.pow(2, fan - 3);
+    }
+
+    function loadState(){
+      const fallback = {
+        names:['東','南','西','北'],
+        totals:[0,0,0,0],
+        history:[]
+      };
+      try{
+        const raw = localStorage.getItem(storageKey);
+        if(!raw) return fallback;
+        const parsed = JSON.parse(raw);
+        return {
+          names: Array.isArray(parsed.names) && parsed.names.length === 4 ? parsed.names : fallback.names,
+          totals: Array.isArray(parsed.totals) && parsed.totals.length === 4 ? parsed.totals : fallback.totals,
+          history: Array.isArray(parsed.history) ? parsed.history : fallback.history
+        };
+      }catch{
+        return fallback;
+      }
+    }
+
+    function saveState(){
+      localStorage.setItem(storageKey, JSON.stringify(state));
+    }
+
+    function renderFanButtons(){
+      const fanGrid = document.getElementById('fanGrid');
+      fanGrid.innerHTML = fanValues.map(fan => {
+        const score = scoreForFan(fan);
+        return `<button class="fan-btn ${fan===selectedFan?'active':''}" data-fan="${fan}">
+          <strong>${fan}番</strong>
+          <span>${score} 分</span>
+        </button>`;
+      }).join('');
+      fanGrid.querySelectorAll('.fan-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          selectedFan = Number(btn.dataset.fan);
+          renderAll();
+        });
+      });
+    }
+
+    function renderScore(){
+      const score = scoreForFan(selectedFan);
+      document.getElementById('scoreValue').textContent = score;
+      document.getElementById('scoreFanText').textContent = `${selectedFan} 番`;
+      document.getElementById('scoreDesc').textContent = selectedFan === 3 ? '一炮32' : `比 ${selectedFan-1} 番再高一級`;
+    }
+
+    function renderTable(){
+      const max = scoreForFan(10);
+      document.getElementById('scoreTable').innerHTML = fanValues.map(fan => {
+        const score = scoreForFan(fan);
+        const width = Math.max(8, Math.round(score / max * 100));
+        return `<div class="row">
+          <div>
+            <div class="fan">${fan}番</div>
+            <div class="mini">出銃</div>
+          </div>
+          <div class="bar"><i style="width:${width}%"></i></div>
+          <div class="pts">${score}</div>
+        </div>`;
+      }).join('');
+    }
+
+    function syncNameInputs(){
+      state.names.forEach((name, idx) => {
+        document.getElementById(`name${idx}`).value = name;
+      });
+    }
+
+    function wireNameInputs(){
+      state.names.forEach((_, idx) => {
+        document.getElementById(`name${idx}`).addEventListener('input', (e) => {
+          state.names[idx] = e.target.value.trim() || ['東','南','西','北'][idx];
+          saveState();
+          renderSelectors();
+          renderTotals();
+          renderHistory();
+        });
+      });
+    }
+
+    function renderSelectors(){
+      const winner = document.getElementById('winner');
+      const loser = document.getElementById('loser');
+      const options = state.names.map((name, idx) => `<option value="${idx}">${name}</option>`).join('');
+      const currentWinner = winner.value || '0';
+      const currentLoser = loser.value || '1';
+      winner.innerHTML = options;
+      loser.innerHTML = options;
+      winner.value = currentWinner;
+      loser.value = currentLoser === currentWinner ? String((Number(currentWinner)+1)%4) : currentLoser;
+    }
+
+    function renderTotals(){
+      document.getElementById('totals').innerHTML = state.totals.map((score, idx) => {
+        const cls = score > 0 ? 'plus' : score < 0 ? 'minus' : '';
+        const prefix = score > 0 ? '+' : '';
+        return `<div class="player-total">
+          <div class="player-name">${state.names[idx]}</div>
+          <div class="player-score ${cls}">${prefix}${score}</div>
+        </div>`;
+      }).join('');
+    }
+
+    function renderHistory(){
+      const historyEl = document.getElementById('history');
+      if(!state.history.length){
+        historyEl.innerHTML = '<div class="empty">未有紀錄，揀好番數之後按「記錄呢鋪」。</div>';
+        return;
+      }
+      historyEl.innerHTML = state.history.slice().reverse().map(item => {
+        return `<div class="history-item">
+          <strong>${item.winner} 食 ${item.loser}</strong>
+          <div>${item.fan}番 · ${item.score} 分</div>
+        </div>`;
+      }).join('');
+    }
+
+    function applyRound(){
+      const winnerIdx = Number(document.getElementById('winner').value);
+      const loserIdx = Number(document.getElementById('loser').value);
+      if(winnerIdx === loserIdx){
+        alert('糊牌同出銃唔可以係同一個人。');
+        return;
+      }
+      const score = scoreForFan(selectedFan);
+      state.totals[winnerIdx] += score;
+      state.totals[loserIdx] -= score;
+      state.history.push({
+        winner: state.names[winnerIdx],
+        loser: state.names[loserIdx],
+        fan: selectedFan,
+        score
+      });
+      saveState();
+      renderTotals();
+      renderHistory();
+    }
+
+    function undoRound(){
+      const last = state.history.pop();
+      if(!last) return;
+      const winnerIdx = state.names.indexOf(last.winner);
+      const loserIdx = state.names.indexOf(last.loser);
+      if(winnerIdx !== -1) state.totals[winnerIdx] -= last.score;
+      if(loserIdx !== -1) state.totals[loserIdx] += last.score;
+      saveState();
+      renderTotals();
+      renderHistory();
+    }
+
+    function resetBoard(){
+      if(!confirm('清零全部玩家分數同紀錄？')) return;
+      state.totals = [0,0,0,0];
+      state.history = [];
+      saveState();
+      renderTotals();
+      renderHistory();
+    }
+
+    function renderAll(){
+      renderFanButtons();
+      renderScore();
+      renderTable();
+      syncNameInputs();
+      renderSelectors();
+      renderTotals();
+      renderHistory();
+    }
+
+    wireNameInputs();
+    document.getElementById('applyBtn').addEventListener('click', applyRound);
+    document.getElementById('undoBtn').addEventListener('click', undoRound);
+    document.getElementById('resetBtn').addEventListener('click', resetBoard);
+    renderAll();
+  </script>
+</body>
+</html>
