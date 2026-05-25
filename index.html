@@ -86,7 +86,7 @@
     <section class="hero">
       <div class="eyebrow">Traditional Mahjong · 香港常用簡化記分</div>
       <h1>麻雀計分器</h1>
-      <div class="sub">而家改成用<strong>人名</strong>做計分單位。你可以先加入人名，再揀今鋪邊四個人落場。就算中途換人，分數都會繼續累積喺各自名下。</div>
+      <div class="sub">而家完全唔分固定座位，直接用<strong>人名</strong>做計分單位。你可以先加入人名，再揀今鋪邊四個人落場。就算中途換人，分數都會繼續累積喺各自名下。</div>
       <div class="rulebar">
         <div class="pill">三番起糊</div>
         <div class="pill">封頂十番</div>
@@ -163,7 +163,7 @@
           <div class="section-title" style="margin-top:20px">最近紀錄</div>
           <div class="history" id="history"></div>
 
-          <div class="foot">註：分數跟住<strong>人名</strong>走，唔係跟住座位。即係你隨時可以換今鋪四個人，之前累積分數唔會消失。自摸暫時係簡化版：其餘三家各付同樣分數。</div>
+          <div class="foot">註：而家只會按<strong>人名</strong>計分，唔再用固定座位做總分單位。你隨時可以換今鋪四個人，之前累積分數唔會消失。自摸暫時係簡化版：其餘三家各付同樣分數。</div>
         </div>
       </div>
     </section>
@@ -171,8 +171,8 @@
 
   <script>
     const fanValues = [3,4,5,6,7,8,9,10];
-    const defaultPlayers = ['東','南','西','北'];
-    const storageKey = 'mahjong-score-v2';
+    const compassPlaceholders = ['東','南','西','北'];
+    const storageKey = 'mahjong-score-v3';
     let selectedFan = 3;
     let state = loadState();
 
@@ -185,24 +185,55 @@
       return list.map(normalizeName).filter(name => name && !seen.has(name) && seen.add(name));
     }
 
+    function sanitizeLoadedState(players, seats, scores, history){
+      const cleanPlayers = uniqueNames(Array.isArray(players) ? players : []);
+      const cleanSeats = Array.isArray(seats) ? seats.slice(0,4).map(normalizeName) : [];
+      const cleanScores = typeof scores === 'object' && scores ? { ...scores } : {};
+      const cleanHistory = Array.isArray(history) ? history : [];
+
+      compassPlaceholders.forEach(name => {
+        const score = Number(cleanScores[name] || 0);
+        const usedInSeat = cleanSeats.includes(name);
+        if(score === 0 && !usedInSeat){
+          delete cleanScores[name];
+        }
+      });
+
+      const mergedPlayers = uniqueNames([
+        ...cleanPlayers.filter(name => !(compassPlaceholders.includes(name) && Number(cleanScores[name] || 0) === 0 && !cleanSeats.includes(name))),
+        ...cleanSeats.filter(Boolean)
+      ]);
+
+      mergedPlayers.forEach(name => {
+        if(typeof cleanScores[name] !== 'number') cleanScores[name] = 0;
+      });
+
+      return {
+        players: mergedPlayers,
+        seats: [0,1,2,3].map(idx => cleanSeats[idx] || ''),
+        scores: cleanScores,
+        history: cleanHistory
+      };
+    }
+
     function loadState(){
       const fallback = {
-        players: [...defaultPlayers],
-        seats: [...defaultPlayers],
-        scores: Object.fromEntries(defaultPlayers.map(name => [name, 0])),
+        players: [],
+        seats: ['', '', '', ''],
+        scores: {},
         history: []
       };
       try{
         const raw = localStorage.getItem(storageKey);
         if(raw){
           const parsed = JSON.parse(raw);
-          const players = uniqueNames(Array.isArray(parsed.players) ? parsed.players : fallback.players);
-          const seats = Array.isArray(parsed.seats) && parsed.seats.length === 4 ? parsed.seats.map(normalizeName) : fallback.seats;
-          const scores = typeof parsed.scores === 'object' && parsed.scores ? parsed.scores : {};
-          const history = Array.isArray(parsed.history) ? parsed.history : [];
-          players.forEach(name => { if(typeof scores[name] !== 'number') scores[name] = 0; });
-          seats.forEach(name => { if(name && !players.includes(name)) players.push(name); if(name && typeof scores[name] !== 'number') scores[name] = 0; });
-          return { players, seats, scores, history };
+          return sanitizeLoadedState(parsed.players, parsed.seats, parsed.scores, parsed.history);
+        }
+
+        const oldV2Raw = localStorage.getItem('mahjong-score-v2');
+        if(oldV2Raw){
+          const parsed = JSON.parse(oldV2Raw);
+          return sanitizeLoadedState(parsed.players, parsed.seats, parsed.scores, parsed.history);
         }
 
         const oldRaw = localStorage.getItem('mahjong-score-v1');
@@ -212,7 +243,7 @@
           const totals = Array.isArray(oldParsed.totals) ? oldParsed.totals : [0,0,0,0];
           const scores = {};
           players.forEach((name, idx) => { scores[name] = Number(totals[idx] || 0); });
-          return { players, seats:[...players.slice(0,4)], scores, history:[] };
+          return sanitizeLoadedState(players, players.slice(0,4), scores, []);
         }
       }catch{}
       return fallback;
@@ -222,15 +253,17 @@
 
     function ensureStateIntegrity(){
       state.players = uniqueNames(state.players);
-      defaultPlayers.forEach(name => {
-        if(!state.players.includes(name)) state.players.push(name);
-      });
       if(!Array.isArray(state.seats) || state.seats.length !== 4){
-        state.seats = state.players.slice(0,4);
+        state.seats = ['', '', '', ''];
       }
-      state.seats = state.seats.map((name, idx) => normalizeName(name) || state.players[idx] || state.players[0]);
+      state.seats = [0,1,2,3].map(idx => normalizeName(state.seats[idx]));
       if(!state.scores || typeof state.scores !== 'object') state.scores = {};
       state.players.forEach(name => { if(typeof state.scores[name] !== 'number') state.scores[name] = 0; });
+      Object.keys(state.scores).forEach(name => {
+        if(!state.players.includes(name) && Number(state.scores[name] || 0) === 0 && !state.seats.includes(name)){
+          delete state.scores[name];
+        }
+      });
       if(!Array.isArray(state.history)) state.history = [];
     }
 
@@ -246,7 +279,6 @@
     }
 
     function removePlayer(name){
-      if(defaultPlayers.includes(name)) return;
       const usingSeat = state.seats.includes(name);
       const score = Number(state.scores[name] || 0);
       if(usingSeat || score !== 0){
@@ -289,7 +321,7 @@
     function renderPlayerChips(){
       const el = document.getElementById('playerChips');
       el.innerHTML = state.players.map(name => {
-        const removable = !defaultPlayers.includes(name) && state.scores[name] === 0 && !state.seats.includes(name);
+        const removable = state.scores[name] === 0 && !state.seats.includes(name);
         return `<div class="chip">${name}${removable ? `<button data-remove="${name}">×</button>` : ''}</div>`;
       }).join('');
       el.querySelectorAll('[data-remove]').forEach(btn => btn.addEventListener('click', () => removePlayer(btn.dataset.remove)));
@@ -298,10 +330,9 @@
     function renderSeats(){
       for(let i=0;i<4;i++){
         const seat = document.getElementById(`seat${i}`);
-        const current = state.seats[i] || state.players[i] || state.players[0];
-        seat.innerHTML = state.players.map(name => `<option value="${name}">${name}</option>`).join('');
-        if(state.players.includes(current)) seat.value = current;
-        else seat.value = state.players[0];
+        const current = state.seats[i] || '';
+        seat.innerHTML = [`<option value="">未揀</option>`, ...state.players.map(name => `<option value="${name}">${name}</option>`)].join('');
+        seat.value = state.players.includes(current) ? current : '';
       }
     }
 
@@ -320,20 +351,29 @@
       const winner = document.getElementById('winner');
       const loser = document.getElementById('loser');
       const loserLabel = document.getElementById('loserLabel');
-      const options = state.seats.map((name, idx) => `<option value="${idx}">${name}</option>`).join('');
-      const currentWinner = winner.value || '0';
-      const currentLoser = loser.value || '1';
+      const activePlayers = uniqueNames(state.seats.filter(Boolean));
+      const options = activePlayers.length
+        ? activePlayers.map(name => `<option value="${name}">${name}</option>`).join('')
+        : '<option value="">請先揀今鋪玩家</option>';
+      const currentWinner = winner.value;
+      const currentLoser = loser.value;
       winner.innerHTML = options;
       loser.innerHTML = options;
-      winner.value = currentWinner;
-      loser.value = currentLoser === currentWinner ? String((Number(currentWinner)+1)%4) : currentLoser;
-      loser.disabled = winType === 'selfdraw';
+      winner.value = activePlayers.includes(currentWinner) ? currentWinner : (activePlayers[0] || '');
+      const fallbackLoser = activePlayers.find(name => name !== winner.value) || '';
+      loser.value = activePlayers.includes(currentLoser) && currentLoser !== winner.value ? currentLoser : fallbackLoser;
+      winner.disabled = !activePlayers.length;
+      loser.disabled = winType === 'selfdraw' || activePlayers.length < 2;
       loserLabel.textContent = winType === 'selfdraw' ? '出銃（自摸時唔使揀）' : '邊個出銃';
       renderScore();
     }
 
     function renderTotals(){
       const totals = Object.entries(state.scores).sort((a,b) => b[1]-a[1] || a[0].localeCompare(b[0], 'zh-HK'));
+      if(!totals.length){
+        document.getElementById('totals').innerHTML = '<div class="empty">未有人名，先加入玩家先可以開始累積總分。</div>';
+        return;
+      }
       document.getElementById('totals').innerHTML = totals.map(([name, score]) => {
         const cls = score > 0 ? 'plus' : score < 0 ? 'minus' : '';
         const prefix = score > 0 ? '+' : '';
@@ -352,18 +392,22 @@
 
     function applyRound(){
       const winType = document.getElementById('winType').value;
-      const winnerIdx = Number(document.getElementById('winner').value);
-      const loserIdx = Number(document.getElementById('loser').value);
-      const winnerName = state.seats[winnerIdx];
-      const loserName = state.seats[loserIdx];
-      if(winType === 'discard' && winnerIdx === loserIdx){ alert('糊牌同出銃唔可以係同一個人。'); return; }
+      const activeSeats = state.seats.filter(Boolean);
+      if(activeSeats.length !== 4 || uniqueNames(activeSeats).length !== 4){
+        alert('請先揀好今鋪四位唔同嘅玩家。');
+        return;
+      }
+      const winnerName = document.getElementById('winner').value;
+      const loserName = document.getElementById('loser').value;
+      if(!winnerName){ alert('請先揀邊個糊。'); return; }
+      if(winType === 'discard' && (!loserName || winnerName === loserName)){ alert('糊牌同出銃唔可以係同一個人。'); return; }
       const score = scoreForFan(selectedFan);
       const deltas = {};
       let label = '';
       let detail = '';
 
       if(winType === 'selfdraw'){
-        state.seats.forEach((name, idx) => { deltas[name] = (deltas[name] || 0) + (idx === winnerIdx ? score * 3 : -score); });
+        state.seats.forEach(name => { deltas[name] = (deltas[name] || 0) + (name === winnerName ? score * 3 : -score); });
         label = `${winnerName} 自摸`;
         detail = `${selectedFan}番 · 每家 ${score} 分 · 合共 ${score * 3}`;
       } else {
