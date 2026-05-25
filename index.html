@@ -281,16 +281,18 @@
 
     function removePlayer(name){
       const usingSeat = state.seats.includes(name);
-      if(usingSeat){
-        alert('呢個玩家而家仲喺今鋪座位上，請先換走先可以刪除。');
-        return;
-      }
       const score = Number(state.scores[name] || 0);
       const relatedHistoryCount = state.history.filter(item => (item?.deltas && Object.prototype.hasOwnProperty.call(item.deltas, name)) || (Array.isArray(item?.seats) && item.seats.includes(name))).length;
-      if(score !== 0 || relatedHistoryCount > 0){
-        const ok = confirm(`刪除 ${name} 會一併移除佢嘅累積分數同相關紀錄，呢個動作無得 Undo。確定刪除？`);
-        if(!ok) return;
-      }
+      const impacts = [];
+      if(usingSeat) impacts.push('今鋪座位會清空');
+      if(score !== 0) impacts.push('累積分數會刪除');
+      if(relatedHistoryCount > 0) impacts.push(`相關紀錄會刪除（${relatedHistoryCount} 筆）`);
+      const message = impacts.length
+        ? `刪除 ${name} 後：\n- ${impacts.join('\n- ')}\n呢個動作無得 Undo。確定刪除？`
+        : `確定刪除 ${name}？`;
+      const ok = confirm(message);
+      if(!ok) return;
+      state.seats = state.seats.map(player => player === name ? '' : player);
       state.players = state.players.filter(player => player !== name);
       delete state.scores[name];
       state.history = state.history.filter(item => !((item?.deltas && Object.prototype.hasOwnProperty.call(item.deltas, name)) || (Array.isArray(item?.seats) && item.seats.includes(name))));
@@ -328,8 +330,7 @@
     function renderPlayerChips(){
       const el = document.getElementById('playerChips');
       el.innerHTML = state.players.map(name => {
-        const removable = !state.seats.includes(name);
-        return `<div class="chip">${name}${removable ? `<button data-remove="${name}">×</button>` : ''}</div>`;
+        return `<div class="chip">${name}<button data-remove="${name}" aria-label="刪除 ${name}">×</button></div>`;
       }).join('');
       el.querySelectorAll('[data-remove]').forEach(btn => btn.addEventListener('click', () => removePlayer(btn.dataset.remove)));
     }
